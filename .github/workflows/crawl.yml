@@ -1,0 +1,25 @@
+name: Crawl DLT 100
+
+on:
+  schedule:
+    - cron: '30 13 * * *'
+  workflow_dispatch:   # 手动按钮
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with: {node-version:18}
+      - run: npm install axios
+      - run: node scrape.js
+      - name: commit & push
+        run: |
+          git config user.name  "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add dlt100.json
+          git diff --quiet && git diff --staged --quiet || (
+            git commit -m "daily update $(date -u +%F)"
+            git push origin main
+          )
