@@ -1,8 +1,128 @@
 <!doctype html>
-<html>
-  <head><meta charset="utf-8"/><title>大乐透冷热接口</title></head>
-  <body>
-    <h1>大乐透冷热数据接口</h1>
-    <p>访问 <a href="/api/dlt-100">/api/dlt-100</a> 获取最新 100 期 JSON</p>
-  </body>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>大乐透冷热动态选号器</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:30px;background:#f7f7f7}
+h2{color:#c30}
+button{padding:8px 18px;font-size:16px;cursor:pointer}
+.ball{display:inline-block;width:32px;height:32px;line-height:32px;text-align:center;border-radius:50%;margin:4px;font-weight:bold;color:#fff}
+.hot{background:#e74c3c}.warm{background:#f39c12}.cold{background:#3498db}
+table{border-collapse:collapse;margin-top:15px;font-size:13px}
+th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}
+th{background:#eee}
+#stats{display:flex;gap:20px;margin:10px 0}
+#stats div{flex:1}
+</style>
+</head>
+<body>
+
+<h2>大乐透冷热动态选号器</h2>
+<p>策略：前区 3 热 + 1 温 + 1 冷 / 后区 1 热 + 1 温</p>
+<button onclick="generate()">生成一注</button>
+<div id="result" style="margin-top:15px;font-size:18px"></div>
+
+<h3>前区冷热分布（最近100期）</h3>
+<div id="stats"></div>
+<table id="frontTable"></table>
+
+<h3>后区冷热分布</h3>
+<table id="backTable"></table>
+
+<script>
+let draws=[];      // 原始100期
+let frontStat={};  // {number:{freq,miss}}
+let backStat ={};
+
+/* 1. 拉取最新100期 */
+async function loadDraws(){
+  const url='https://dlt-crawler.vercel.app/api/dlt-100'; // ← 你的接口
+  draws = await fetch(url).then(r=>r.json());
+  buildStat();
+  renderTables();
+  generate();
+}
+loadDraws();
+
+/* 2. 统计频次 & 当前遗漏 */
+function buildStat(){
+  // 初始化
+  for(let i=1;i<=35;i++) frontStat[i]={freq:0,miss:0};
+  for(let i=1;i<=12;i++)  backStat[i] ={freq:0,miss:0};
+  // 倒序遍历，最新一期 index=0
+  draws.forEach((d,idx)=>{
+    d.front.forEach(n=>{ frontStat[n].freq++; frontStat[n].miss=idx; });
+    d.back.forEach(n=>{  backStat[n].freq++;  backStat[n].miss=idx; });
+  });
+  // 把 miss 转成“距离最新一期多少期”
+  draws.forEach((d,idx)=>{
+    d.front.forEach(n=> frontStat[n].miss=idx-frontStat[n].miss);
+    d.back.forEach(n=>  backStat[n].miss=idx-backStat[n].miss);
+  });
+}
+
+/* 3. 冷热分类 */
+function classify(stat){
+  const hot=[],warm=[],cold=[];
+  for(let n in stat){
+    const m=stat[n].miss;
+    if(m<=3) hot.push(n);
+    else if(m<=10) warm.push(n);
+    else cold.push(n);
+  }
+  return {hot,warm,cold};
+}
+
+/* 4. 按策略随机选号 */
+function pick(arr,k){
+  const a=[...arr].map(Number);
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a.slice(0,k).sort((x,y)=>x-y);
+}
+function generate(){
+  const f=classify(frontStat);
+  const b=classify(backStat);
+  const fHot=pick(f.hot,3), fWarm=pick(f.warm,1), fCold=pick(f.cold,1);
+  const bHot=pick(b.hot,1), bWarm=pick(b.warm,1);
+  const front=[...fHot,...fWarm,...fCold].sort((x,y)=>x-y);
+  const back  =[...bHot,...bWarm].sort((x,y)=>x-y);
+  showResult(front,back,fHot,fWarm,fCold,bHot,bWarm);
+}
+
+/* 5. 页面渲染 */
+function showResult(front,back,fH,fW,fC,bH,bW){
+  const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${n}</span>`;
+  const fHtml=front.map(span).join('');
+  const bHtml=back.map(span).join('');
+  document.getElementById('result').innerHTML=`前区：${fHtml} &nbsp;&nbsp; 后区：${bHtml}`;
+}
+function renderTables(){
+  const f=classify(frontStat);
+  const b=classify(backStat);
+  const fRows=[], bRows=[];
+  ['hot','warm','cold'].forEach(type=>{
+    (type==='hot'?f.hot:type==='warm'?f.warm:f.cold).forEach(n=>{
+      const s=frontStat[n];
+      fRows.push(`<tr><td>${n.padStart(2,'0')}</td><td>${s.freq}</td><td>${s.miss}</td><td class="${type}">${type==='hot'?'热':type==='warm'?'温':'冷'}</td></tr>`);
+    });
+    (type==='hot'?b.hot:type==='warm'?b.warm:b.cold).forEach(n=>{
+      const s=backStat[n];
+      bRows.push(`<tr><td>${n.padStart(2,'0')}</td><td>${s.freq}</td><td>${s.miss}</td><td class="${type}">${type==='hot'?'热':type==='warm'?'温':'冷'}</td></tr>`);
+    });
+  });
+  document.getElementById('frontTable').innerHTML ='<thead><tr><th>号码</th><th>出现次数</th><th>当前遗漏</th><th>冷热</th></tr></thead><tbody>' + fRows.join('') + '</tbody>';
+  document.getElementById('backTable').innerHTML  ='<thead><tr><th>号码</th><th>出现次数</th><th>当前遗漏</th><th>冷热</th></tr></thead><tbody>' + bRows.join('') + '</tbody>';
+  document.getElementById('stats').innerHTML=`  
+    <div>前区 热号：${f.hot.join(' ')}</div>  
+    <div>前区 温号：${f.warm.join(' ')}</div>  
+    <div>前区 冷号：${f.cold.join(' ')}</div>  
+  `;
+}
+</script>
+</body>
 </html>
