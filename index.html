@@ -110,7 +110,7 @@ function generate(){
   showResult(front,back,fHot,fWarm,fCold,bHot,bWarm);
 }
 function showResult(front,back,fH,fW,fC,bH,bW){
-  const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${n.padStart(2,'0')}</span>`;
+  const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${String(n).padStart(2,'0')}</span>`;
   document.getElementById('result').innerHTML=`前区：${front.map(span).join('')}<br>后区：${back.map(span).join('')}`;
 }
 function showRecent(){
