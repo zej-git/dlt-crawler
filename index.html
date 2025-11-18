@@ -117,9 +117,24 @@ function generate(){
   const front=[...fHot,...fWarm,...fCold].sort((x,y)=>x-y);
   showResult(front,back.sort((x,y)=>x-y),fHot,fWarm,fCold,bH,bW);
 }
-function showResult(front,back,fH,fW,fC,bH,bW){
-  const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${String(n).padStart(2,'0')}</span>`;
-  document.getElementById('result').innerHTML=`前区：${front.map(span).join('')}<br>后区：${back.map(span).join('')}`;
+function showResult(front, back, fH, fW, fC, bH, bW) {
+  const span = n => `<span class="ball ${fH.includes(n) || bH.includes(n) ? 'hot' : fW.includes(n) || bW.includes(n) ? 'warm' : 'cold'}">${String(n).padStart(2, '0')}</span>`;
+  const frontStr = front.map(n => String(n).padStart(2, '0')).join(' ');
+  const backStr = back.map(n => String(n).padStart(2, '0')).join(' ');
+  const resultHTML = `
+    前区：${front.map(span).join('')}<br>
+    后区：${back.map(span).join('')}<br>
+    <button class="btn" onclick="copyNums('${frontStr}', '${backStr}')" style="margin-top:8px;">一键复制</button>`;
+  document.getElementById('result').innerHTML = resultHTML;
+}
+  // 复制功能
+function copyNums(front, back) {
+  const text = `前区：${front}  后区：${back}`;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('已复制到剪贴板：\n' + text);
+  }).catch(err => {
+    alert('复制失败，请手动选中复制');
+  });
 }
 function showRecent(){
   const recent=draws.slice(0,10);
