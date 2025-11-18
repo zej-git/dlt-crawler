@@ -66,8 +66,11 @@ th{background:#fafafa}
 /* ===== 与之前相同的核心逻辑 ===== */
 let draws=[],frontStat={},backStat={};
 async function loadDraws(){
-  draws=await fetch('https://dlt-crawler.vercel.app/api/dlt-100').then(r=>r.json());
-  buildStat();render();showRecent();
+  draws = await fetch('https://dlt-crawler.vercel.app/api/dlt-100').then(r => r.json());
+  buildStat();
+  showRecent();   // ← 挪到 buildStat 之后
+  render();       // ← 挪到 buildStat 之后
+  generate();     // ← 最后生成号码
 }
 function buildStat(){
   for(let i=1;i<=35;i++)frontStat[i]={freq:0,miss:0};
