@@ -106,10 +106,16 @@ function showResult(front,back,fH,fW,fC,bH,bW){
   const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${n.padStart(2,'0')}</span>`;
   document.getElementById('result').innerHTML=`前区：${front.map(span).join('')}<br>后区：${back.map(span).join('')}`;
 }
+function showRecent(){
+  const recent=draws.slice(0,10);
+  document.getElementById('recent').innerHTML=
+    recent.length ? recent.map(d=>`<span>${d.issue} 前[${d.front.join(' ')}] 后[${d.back.join(' ')}]</span>`).join('')
+                : '<span>暂无数据</span>';
+}
 function render(){
   const f=classify(frontStat),b=classify(backStat);
-  document.getElementById('frontStat').innerHTML=`热：${f.hot.map(n=>n.padStart(2,'0')).join(' ')}<br>温：${f.warm.map(n=>n.padStart(2,'0')).join(' ')}<br>冷：${f.cold.map(n=>n.padStart(2,'0')).join(' ')}`;
-  document.getElementById('backStat').innerHTML=`热：${b.hot.map(n=>n.padStart(2,'0')).join(' ')}<br>温：${b.warm.map(n=>n.padStart(2,'0')).join(' ')}<br>冷：${b.cold.map(n=>n.padStart(2,'0')).join(' ')}`;
+  document.getElementById('frontStat').innerHTML=`热：${f.hot.join(' ')}<br>温：${f.warm.join(' ')}<br>冷：${f.cold.join(' ')}`;
+  document.getElementById('backStat').innerHTML=`热：${b.hot.join(' ')}<br>温：${b.warm.join(' ')}<br>冷：${b.cold.join(' ')}`;
   const fRows=[],bRows=[];
   ['hot','warm','cold'].forEach(t=>{
     (t==='hot'?f.hot:t==='warm'?f.warm:f.cold).forEach(n=>{
@@ -121,10 +127,6 @@ function render(){
   });
   document.getElementById('frontTable').innerHTML='<thead><tr><th>号</th><th>次数</th><th>遗漏</th><th>冷热</th></tr></thead><tbody>'+fRows.join('')+'</tbody>';
   document.getElementById('backTable').innerHTML='<thead><tr><th>号</th><th>次数</th><th>遗漏</th><th>冷热</th></tr></thead><tbody>'+bRows.join('')+'</tbody>';
-}
-function showRecent(){
-  const recent=draws.slice(0,10);
-  document.getElementById('recent').innerHTML=recent.map(d=>`<span>${d.issue} 前[${d.front.join(' ')}] 后[${d.back.join(' ')}]</span>`).join('');
 }
 function copyText(area){
   const txt=area==='front'?Object.keys(frontStat).map(n=>n.padStart(2,'0')).join(' '):Object.keys(backStat).map(n=>n.padStart(2,'0')).join(' ');
