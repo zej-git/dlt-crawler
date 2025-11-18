@@ -104,10 +104,18 @@ function pick(arr,k){
 function generate(){
   const f=classify(frontStat),b=classify(backStat);
   const fHot=pick(f.hot,3),fWarm=pick(f.warm,1),fCold=pick(f.cold,1);
-  const bHot=pick(b.hot,1),bWarm=pick(b.warm,1);
+  // 后区保底：先按策略 1 热+1 温，若某一类不足就用另一类补齐
+  let bH=pick(b.hot,1),bW=pick(b.warm,1);
+  if(bH.length===0) bH=pick(b.warm,1);   // 没热号就用温号补
+  if(bW.length===0) bW=pick(b.hot,1);    // 没温号就用热号补
+  // 如果还是不足 2 个（极端全空），再随机补一个
+  const back=[...bH,...bW];
+  if(back.length<2){
+    const pool=[...b.hot,...b.warm];          // 热+温 全 pool
+    back.push(...pick(pool,2-back.length));   // 补齐到 2
+  }
   const front=[...fHot,...fWarm,...fCold].sort((x,y)=>x-y);
-  const back=[...bHot,...bWarm].sort((x,y)=>x-y);
-  showResult(front,back,fHot,fWarm,fCold,bHot,bWarm);
+  showResult(front,back.sort((x,y)=>x-y),fHot,fWarm,fCold,bH,bW);
 }
 function showResult(front,back,fH,fW,fC,bH,bW){
   const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${String(n).padStart(2,'0')}</span>`;
