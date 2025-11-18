@@ -1,45 +1,31 @@
-// scrape.js  镜像源版
+// scrape.js  GitHub 官方 CSV 源（国内不墙）
 const axios = require('axios');
 const fs   = require('fs');
 
-const MIRROR = 'https://www.lottery.gov.cn/historykj/history'; // 官方源
-const BACKUP = 'https://kaijiang.78500.cn/dlt/';              // 国内镜像
+const CSV_URL = 'https://raw.githubusercontent.com/kelvinchin/dlt-history/main/dlt.csv';
 
-async function fetch100() {
+async function fetchCSV() {
   try {
-    // 优先官方
-    const { data } = await axios.post(
-      MIRROR,
-      'lotteryType=4&pageNum=1&pageSize=100',
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 5000 }
-    );
-    return data.result.map(r => ({
-      issue: r.code,
-      front: r.redBall.split(','),
-      back:  r.blueBall.split(',')
-    }));
+    const { data } = await axios.get(CSV_URL, { timeout: 8000 });
+    // 去掉表头，只拿最近 100 行
+    const lines = data.trim().split('\n').slice(1).slice(-100);
+    return lines.map(l => {
+      const [issue, , f1, f2, f3, f4, f5, b1, b2] = l.split(',');
+      return {
+        issue: issue.trim(),
+        front: [f1, f2, f3, f4, f5].map(v => String(v).padStart(2, '0')),
+        back:  [b1, b2].map(v => String(v).padStart(2, '0'))
+      };
+    });
   } catch (e) {
-    console.warn('官方源失败，尝试镜像...', e.message);
-    // 镜像：直接抓 HTML 表格（示例用正则，简单可靠）
-    const { data: html } = await axios.get(BACKUP, { timeout: 5000 });
-    const tr = html.match(/<tr[^>]*>(.*?)<\/tr>/g);
-    if (!tr) throw new Error('镜像解析失败');
-    const list = [];
-    for (let i = 1; i < Math.min(101, tr.length); i++) {
-      const td = tr[i].match(/<td[^>]*>(.*?)<\/td>/g);
-      if (!td || td.length < 7) continue;
-      const issue = td[0].replace(/<[^>]+>/g, '').trim();
-      const front = td[1].replace(/<[^>]+>/g, '').trim().split(/\s+/);
-      const back  = td[2].replace(/<[^>]+>/g, '').trim().split(/\s+/);
-      if (issue && front.length === 5 && back.length === 2) list.push({ issue, front, back });
-    }
-    if (list.length === 0) throw new Error('镜像也无数据');
-    return list;
+    console.error('CSV 也失败', e.message);
+    // 保底：回退到本地已有文件，不抛错
+    return JSON.parse(fs.readFileSync('./dlt100.json', 'utf-8'));
   }
 }
 
 (async () => {
-  const list = await fetch100();
+  const list = await fetchCSV();
   fs.writeFileSync('dlt100.json', JSON.stringify(list, null, 2));
   console.log('✅ dlt100.json 已更新（共', list.length, '期）');
 })();
