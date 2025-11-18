@@ -1,34 +1,22 @@
-// scrape.js  临时方案：用已推送的 dlt100.json 当种子，后续再换源
-const fs = require('fs');
+const CSV = 'https://raw.githubusercontent.com/kelvinchin/dlt-history/main/dlt.csv';
 const axios = require('axios');
+const fs   = require('fs');
 
-// ① 先尝试拉官方源（失败就跳过）
-const OFFICIAL_URL = 'https://www.lottery.gov.cn/historykj/history';
-async function tryOfficial() {
-  try {
-    const { data } = await axios.post(
-      OFFICIAL_URL,
-      'lotteryType=4&pageNum=1&pageSize=100',
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 5000 }
-    );
-    return data.result.map(r => ({
-      issue: r.code,
-      front: r.redBall.split(','),
-      back:  r.blueBall.split(',')
-    }));
-  } catch (e) {
-    console.warn('官方源失败，沿用旧数据', e.message);
-    return null;
-  }
-}
+async function fetchCSV() {
+  const { data } = await axios.get(CSV, { timeout: 5000 });
+  const lines = data.trim().split('\n').slice(1); // 去掉表头
+  return lines.slice(-100).map(l => {
+    const [issue, , f1, f2, f3, f4, f5, b1, b2] = l.split(',');
+    return {
+      issue: issue.trim(),
+      front: [f1, f2, f3, f4, f5].map(v => v.padStart(2, '0')),
+      back:  [b1, b2].map(v => v.padStart(2, '0'))
+    };
+  });
+};
 
-// ② 主流程
 (async () => {
-  let list = await tryOfficial();
-  if (!list) {
-    // 失败：直接读取当前仓库的 dlt100.json（保持格式不变）
-    list = JSON.parse(fs.readFileSync('./dlt100.json', 'utf-8'));
-  }
+  const list = await fetchCSV();
   fs.writeFileSync('dlt100.json', JSON.stringify(list, null, 2));
   console.log('✅ dlt100.json 已更新（共', list.length, '期）');
 })();
