@@ -79,10 +79,17 @@ async function loadDraws(){
   generate();     // 最后生成号码
 }
 function buildStat(){
-  for(let i=1;i<=35;i++)frontStat[i]={freq:0,miss:0};
-  for(let i=1;i<=12;i++)backStat[i]={freq:0,miss:0};
-  draws.forEach((d,idx)=>{d.front.forEach(n=>{frontStat[n].freq++;frontStat[n].miss=idx;});d.back.forEach(n=>{backStat[n].freq++;backStat[n].miss=idx;});});
-  draws.forEach((d,idx)=>{d.front.forEach(n=>frontStat[n].miss=idx-frontStat[n].miss);d.back.forEach(n=>backStat[n].miss=idx-backStat[n].miss);});
+  // 初始化：统一用字符串索引，避免 "05" vs 5 对不上
+  for(let i=1;i<=35;i++){frontStat[String(i).padStart(2,'0')]={freq:0,miss:0};}
+  for(let i=1;i<=12;i++){backStat[String(i).padStart(2,'0')]={freq:0,miss:0};}
+  draws.forEach((d,idx)=>{
+    d.front.forEach(n=>{frontStat[n].freq++;frontStat[n].miss=idx;});
+    d.back.forEach(n=>{backStat[n].freq++;backStat[n].miss=idx;});
+  });
+  draws.forEach((d,idx)=>{
+    d.front.forEach(n=>frontStat[n].miss=idx-frontStat[n].miss);
+    d.back.forEach(n=>backStat[n].miss=idx-backStat[n].miss);
+  });
 }
 function classify(stat){
   const h=[],w=[],c=[];
