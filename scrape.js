@@ -1,33 +1,22 @@
-// scrape.js  500.com 直链 JSON 版（国内不墙）
+// scrape.js  500.com 隐藏 JSON 接口（活参数，每晚更新）
 const axios = require('axios');
 const fs   = require('fs');
 
-// 你提供的最新直链：start=25000&end=25131（可往后改）
-const URL = 'https://datachart.500.com/dlt/history/newinc/history.php?start=25000&end=25131';
+// 隐藏接口：一次返回 100 期，倒序排列
+const URL = 'https://datachart.500.com/dlt/history/inc/history.php?limit=500';
 
 async function fetch500() {
   try {
-    const { data: html } = await axios.get(URL, { timeout: 8000 });
-    // 按行拆分，去掉空行
-    const lines = html.split('\n').filter(l => l.includes('<td class="t_tr1"'));
-    const list = [];
-    for (const l of lines) {
-      // 提取所有 <td>数字</td>
-      const tds = l.match(/<td[^>]*>(\d+)<\/td>/g);
-      if (!tds || tds.length < 9) continue;
-      const nums = tds.map(td => td.replace(/<\/?td[^>]*>/g, '').trim());
-      const [issue, f1, f2, f3, f4, f5, b1, b2] = nums;
-      list.push({
-        issue: issue,
-        front: [f1, f2, f3, f4, f5].map(v => v.padStart(2, '0')),
-        back:  [b1, b2].map(v => v.padStart(2, '0'))
-      });
-      if (list.length >= 100) break; // 只留最近 100 期
-    }
-    if (list.length === 0) throw new Error('直链解析为空');
-    return list;
+    const { data } = await axios.get(URL, { timeout: 8000 });
+    // data 是 JSON 数组，倒序，直接解析
+    if (!Array.isArray(data) || data.length === 0) throw new Error('JSON 为空');
+    return data.map(r => ({
+      issue: String(r.code),
+      front: [r.red1, r.red2, r.red3, r.red4, r.red5].map(v => String(v).padStart(2, '0')),
+      back:  [r.blue1, r.blue2].map(v => String(v).padStart(2, '0'))
+    }));
   } catch (e) {
-    console.warn('直链也失败', e.message);
+    console.warn('隐藏 JSON 也失败', e.message);
     // 兜底：回退本地种子
     return JSON.parse(fs.readFileSync('./dlt100.json', 'utf-8'));
   }
