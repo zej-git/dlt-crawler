@@ -8,7 +8,7 @@
 body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;margin:0;background:#f7f7f7;color:#333}
 header{background:linear-gradient(135deg,#667eea 0,#764ba2 100%);color:#fff;padding:30px;text-align:center}
 main{max-width:1200px;margin:20px auto;padding:0 15px;display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
-.card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:20px;text-align:center}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:20px}
 h2,h3{margin-top:0}
 button{background:linear-gradient(135deg,#667eea 0,#764ba2 100%);color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:16px;cursor:pointer;transition:.3s}
 button:hover{box-shadow:0 4px 12px rgba(102,126,234,.4)}
@@ -37,6 +37,11 @@ th{background:#fafafa}
   </section>
 
   <section class="card">
+    <h3>最近 10 期</h3>
+    <table id="recentTable"></table>
+  </section>
+
+  <section class="card">
     <h3>前区冷热分布</h3>
     <div id="stats"></div>
     <table id="frontTable"></table>
@@ -53,26 +58,25 @@ th{background:#fafafa}
 let draws = [];
 let frontStat = {};
 let backStat  = {};
-let lastFront = [], lastBack = []; // 最后一次生成的号码
+let lastFront = [], lastBack = [];
 
 /* ---------- 1. 加载数据 ---------- */
 async function loadDraws(){
   draws = await fetch('https://dlt-crawler.vercel.app/api/dlt-100').then(r => r.json());
   buildStat();
-  render();
-  generate();
+  renderRecent();   // 最近10期表格
+  render();         // 冷热表格
+  generate();       // 生成一注
 }
 loadDraws();
 
 /* ---------- 2. 统计频次 & 遗漏（兼容期号在号码里） ---------- */
 function buildStat(){
-  // 初始化
   for(let i=1;i<=35;i++) frontStat[String(i).padStart(2,'0')] = {freq:0,miss:0};
   for(let i=1;i<=12;i++)  backStat [String(i).padStart(2,'0')] = {freq:0,miss:0};
-
-  // 畸形 JSON：front 里第 1 个是期号，跳过；back 正常
+  // 跳过 front 第1个（期号）
   draws.forEach((d,idx)=>{
-    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1); // 去掉期号
+    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1);
     frontNums.forEach(n=>{
       const key = String(n).padStart(2,'0');
       if(frontStat[key]){ frontStat[key].freq++; frontStat[key].miss = idx; }
@@ -83,7 +87,6 @@ function buildStat(){
       if(backStat[key]){ backStat[key].freq++; backStat[key].miss = idx; }
     });
   });
-
   // 计算遗漏
   draws.forEach((d,idx)=>{
     const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1);
@@ -120,14 +123,14 @@ function generate(){
   const f=classify(frontStat);
   const b=classify(backStat);
 
-  /* 前区保底：3热+1温+1冷，不足时从全池补位（剔除已选） */
+  // 前区保底：3热+1温+1冷，不足时从全池补位（剔除已选）
   let fHot=pick(f.hot,3), fWarm=pick(f.warm,1), fCold=pick(f.cold,1);
   const frontPool=[...new Set([...f.hot,...f.warm,...f.cold])];
   if(fHot.length<3) fHot.push(...pick(frontPool.filter(x=>!fHot.includes(x)),3-fHot.length));
   if(fWarm.length<1) fWarm.push(...pick(frontPool.filter(x=>!fWarm.includes(x)),1-fWarm.length));
   if(fCold.length<1) fCold.push(...pick(frontPool.filter(x=>!fCold.includes(x)),1-fCold.length));
 
-  /* 后区保底：1热+1温，不足时从全池补位（剔除已选） */
+  // 后区保底：1热+1温，不足时从全池补位（剔除已选）
   let bHot=pick(b.hot,1), bWarm=pick(b.warm,1);
   const backPool=[...new Set([...b.hot,...b.warm,...b.cold])];
   if(bHot.length<1) bHot.push(...pick(backPool.filter(x=>!bHot.includes(x)),1-bHot.length));
@@ -141,6 +144,7 @@ function generate(){
 }
 
 /* ---------- 5. 页面渲染 + 一键复制 ---------- */
+lastFront=[]; lastBack=[];
 function showResult(front,back,fH,fW,fC,bH,bW){
   lastFront=front; lastBack=back;
   const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${n}</span>`;
@@ -154,7 +158,19 @@ function copyNums(){
   navigator.clipboard.writeText(text).then(()=>alert('已复制：\n'+text)).catch(()=>alert('复制失败，请手动选中'));
 }
 
-/* ---------- 6. 表格渲染 ---------- */
+/* ---------- 6. 最近 10 期表格 ---------- */
+function renderRecent(){
+  const recent=draws.slice(0,10);
+  const rows=recent.map(d=>{
+    const front=(Array.isArray(d.front)?d.front:[d.front]).slice(1).join(' ');
+    const back =(Array.isArray(d.back)?d.back:[d.back]).join(' ');
+    return `<tr><td>${d.issue}</td><td>${front}</td><td>${back}</td></tr>`;
+  });
+  document.getElementById('recentTable').innerHTML=
+    '<thead><tr><th>期号</th><th>前区</th><th>后区</th></tr></thead><tbody>'+rows.join('')+'</tbody>';
+}
+
+/* ---------- 7. 冷热表格渲染 ---------- */
 function render(){
   const f=classify(frontStat);
   const b=classify(backStat);
