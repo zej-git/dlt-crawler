@@ -8,8 +8,8 @@ const URL = 'https://datachart.500.com/dlt/history/inc/history.php?limit=100';
 async function fetch500() {
   try {
     const { data: html } = await axios.get(URL, { timeout: 8000 });
-    // 按行拆分，只保留含期号的行
-    const lines = html.split('\n').filter(l => l.includes('<td class="t_tr1"'));
+    // 按行拆分，只保留含期号的 <tr>
+    const lines = html.split('\n').filter(l => l.includes('<tr class="t_tr1">'));
     const all = [];
     for (const l of lines) {
       // 提取所有 <td>数字</td>
