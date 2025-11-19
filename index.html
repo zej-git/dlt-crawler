@@ -2,13 +2,13 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
-<title>动态选号器</title>
+<title>大乐透冷热动态选号器</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;margin:0;background:#f7f7f7;color:#333}
 header{background:linear-gradient(135deg,#667eea 0,#764ba2 100%);color:#fff;padding:30px;text-align:center}
 main{max-width:1200px;margin:20px auto;padding:0 15px;display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
-.card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:20px}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:20px;text-align:center}
 h2,h3{margin-top:0}
 button{background:linear-gradient(135deg,#667eea 0,#764ba2 100%);color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:16px;cursor:pointer;transition:.3s}
 button:hover{box-shadow:0 4px 12px rgba(102,126,234,.4)}
@@ -25,12 +25,12 @@ th{background:#fafafa}
 <body>
 
 <header>
-  <h1>动态选号器</h1>
+  <h1>大乐透冷热动态选号器</h1>
   <p>策略：前区 3 热 + 1 温 + 1 冷　|　后区 1 热 + 1 温</p>
 </header>
 
 <main>
-  <section class="card center">
+  <section class="card">
     <button onclick="generate()">生成一注</button>
     <div id="result" style="margin-top:15px;font-size:18px"></div>
     <button id="copyBtn" class="btn" onclick="copyNums()" style="display:none;">一键复制</button>
@@ -50,9 +50,9 @@ th{background:#fafafa}
 
 <script>
 /* ---------- 全局变量 ---------- */
-let draws = [];      // 原始100期
-let frontStat = {};  // {number:{freq,miss}}
-let backStat  = {};  // {number:{freq,miss}}
+let draws = [];
+let frontStat = {};
+let backStat  = {};
 let lastFront = [], lastBack = []; // 最后一次生成的号码
 
 /* ---------- 1. 加载数据 ---------- */
@@ -64,21 +64,19 @@ async function loadDraws(){
 }
 loadDraws();
 
-/* ---------- 2. 统计频次 & 遗漏 ---------- */
+/* ---------- 2. 统计频次 & 遗漏（兼容期号在号码里） ---------- */
 function buildStat(){
   // 初始化
   for(let i=1;i<=35;i++) frontStat[String(i).padStart(2,'0')] = {freq:0,miss:0};
   for(let i=1;i<=12;i++)  backStat [String(i).padStart(2,'0')] = {freq:0,miss:0};
 
-  // 兼容「期号混在号码里」的畸形JSON：跳过第一列
+  // 畸形 JSON：front 里第 1 个是期号，跳过；back 正常
   draws.forEach((d,idx)=>{
-    // 前区：去掉第1个元素（期号），剩下的5个是号码
-    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1);
+    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1); // 去掉期号
     frontNums.forEach(n=>{
       const key = String(n).padStart(2,'0');
       if(frontStat[key]){ frontStat[key].freq++; frontStat[key].miss = idx; }
     });
-    // 后区：直接拿后区数组（没有期号）
     const backNums = (Array.isArray(d.back)?d.back:[d.back]);
     backNums.forEach(n=>{
       const key = String(n).padStart(2,'0');
@@ -126,12 +124,12 @@ function generate(){
   let fHot=pick(f.hot,3), fWarm=pick(f.warm,1), fCold=pick(f.cold,1);
   if(fHot.length<3) fHot.push(...pick([...f.warm,...f.cold],3-fHot.length));
   if(fWarm.length<1) fWarm.push(...pick([...f.hot,...f.cold],1-fWarm.length));
-  if(fCold.length<1) fCold.push(...pick([...f.hot,...f.warm],1-fCold.length));
+  if(fCold.length<1) fCold.push(...pick([...f.hot,...f.warm],1-fCold.length)));
 
   // 后区保底：1热+1温，不足时跨类补齐
   let bHot=pick(b.hot,1), bWarm=pick(b.warm,1);
   if(bHot.length<1) bHot.push(...pick(b.warm,1-bHot.length));
-  if(bWarm.length<1) bWarm.push(...pick(b.hot,1-bWarm.length));
+  if(bWarm.length<1) bWarm.push(...pick(b.hot,1-bWarm.length)));
 
   // 最终组装并去重
   const front=[...new Set([...fHot,...fWarm,...fCold])].sort();
@@ -141,7 +139,6 @@ function generate(){
 }
 
 /* ---------- 5. 页面渲染 + 一键复制 ---------- */
-let lastFront=[],lastBack=[];
 function showResult(front,back,fH,fW,fC,bH,bW){
   lastFront=front; lastBack=back;
   const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${n}</span>`;
