@@ -162,7 +162,7 @@ function copyNums(){
 function renderRecent(){
   const recent=draws.slice(0,10);
   const rows=recent.map(d=>{
-    const front=(Array.isArray(d.front)?d.front:[d.front]).slice(1).join(' ');
+    const front=(Array.isArray(d.front)?d.front:[d.front]).slice(0).join(' ');
     const back =(Array.isArray(d.back)?d.back:[d.back]).join(' ');
     return `<tr><td>${d.issue}</td><td>${front}</td><td>${back}</td></tr>`;
   });
