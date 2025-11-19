@@ -1,29 +1,36 @@
-// scrape.js  500.com API 版（国内不墙，每晚 21:20 后更新）
+// scrape.js  500.com HTML → 纯数字
 const axios = require('axios');
 const fs   = require('fs');
 
-const API = 'https://datachart.500.com/dlt/history/history.shtml'; // 直接返回 HTML 表格
+const URL = 'https://datachart.500.com/dlt/history/history.shtml';
 
 async function fetch500() {
   try {
-    const { data: html } = await axios.get(API, { timeout: 8000 });
-    // 解析 HTML 表格
-    const tr = html.match(/<tr[^>]*>(.*?)<\/tr>/g);
-    if (!tr) throw new Error('HTML 解析失败');
+    const { data: html } = await axios.get(URL, { timeout: 8000 });
+    // ① 去掉换行符 ② 按行拆分 ③ 从第一行开始解析
+    const lines = html.replace(/\r\n/g, '\n').split('\n');
     const list = [];
-    for (let i = 2; i < Math.min(102, tr.length); i++) { // 跳过表头
-      const td = tr[i].match(/<td[^>]*>(.*?)<\/td>/g);
-      if (!td || td.length < 7) continue;
-      const issue = td[0].replace(/<[^>]+>/g, '').trim();
-      const front = [td[1], td[2], td[3], td[4], td[5]].map(v => String(v).padStart(2, '0'));
-      const back  = [td[6], td[7]].map(v => String(v).padStart(2, '0'));
-      if (issue && front.length === 5 && back.length === 2) list.push({ issue, front, back });
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      // 只抓 "<td>25131</td>" 开头的那一段
+      if (!l.includes('<td class="t_tr1"')) continue;
+      // 用正则一次性提取所有 <td>数字</td>
+      const tds = l.match(/<td[^>]*>(\d+)<\/td>/g);
+      if (!tds || tds.length < 9) continue;
+      const nums = tds.map(td => td.replace(/<\/?td[^>]*>/g, '').trim());
+      const [issue, f1, f2, f3, f4, f5, b1, b2] = nums;
+      list.push({
+        issue: issue,
+        front: [f1, f2, f3, f4, f5].map(v => v.padStart(2, '0')),
+        back:  [b1, b2].map(v => v.padStart(2, '0'))
+      });
+      if (list.length >= 100) break; // 只拿最近 100 行
     }
-    if (list.length === 0) throw new Error('API 无数据');
+    if (list.length === 0) throw new Error('未解析到任何期号');
     return list;
   } catch (e) {
-    console.warn('API 也失败', e.message);
-    // 兜底：回退本地种子，不抛错
+    console.warn('500 也失败', e.message);
+    // 兜底：回退本地种子
     return JSON.parse(fs.readFileSync('./dlt100.json', 'utf-8'));
   }
 }
