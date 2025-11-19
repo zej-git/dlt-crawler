@@ -76,7 +76,7 @@ function buildStat(){
   for(let i=1;i<=12;i++)  backStat [String(i).padStart(2,'0')] = {freq:0,miss:0};
   // 跳过 front 第1个（期号）
   draws.forEach((d,idx)=>{
-    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1);
+    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(0);
     frontNums.forEach(n=>{
       const key = String(n).padStart(2,'0');
       if(frontStat[key]){ frontStat[key].freq++; frontStat[key].miss = idx; }
@@ -89,7 +89,7 @@ function buildStat(){
   });
   // 计算遗漏
   draws.forEach((d,idx)=>{
-    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(1);
+    const frontNums = (Array.isArray(d.front)?d.front:[d.front]).slice(0);
     frontNums.forEach(n=>{
       const key = String(n).padStart(2,'0');
       if(frontStat[key]) frontStat[key].miss = idx - frontStat[key].miss;
