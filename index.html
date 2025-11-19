@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
-<title>大乐透冷热动态选号器</title>
+<title>动态选号器</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;margin:0;background:#f7f7f7;color:#333}
@@ -25,7 +25,7 @@ th{background:#fafafa}
 <body>
 
 <header>
-  <h1>大乐透冷热动态选号器</h1>
+  <h1>动态选号器</h1>
   <p>策略：前区 3 热 + 1 温 + 1 冷　|　后区 1 热 + 1 温</p>
 </header>
 
@@ -109,7 +109,7 @@ function classify(stat){
   return {hot,warm,cold};
 }
 
-/* ---------- 4. 随机选号（带去重） ---------- */
+/* ---------- 4. 随机选号（带去重 + 补位） ---------- */
 function pick(arr,k){
   const set = new Set(arr.map(n=>String(n).padStart(2,'0')));
   const a   = [...set];
@@ -120,16 +120,18 @@ function generate(){
   const f=classify(frontStat);
   const b=classify(backStat);
 
-  // 前区保底：3热+1温+1冷，不足时跨类补齐
+  /* 前区保底：3热+1温+1冷，不足时从全池补位（剔除已选） */
   let fHot=pick(f.hot,3), fWarm=pick(f.warm,1), fCold=pick(f.cold,1);
-  if(fHot.length<3) fHot.push(...pick([...f.warm,...f.cold],3-fHot.length));
-  if(fWarm.length<1) fWarm.push(...pick([...f.hot,...f.cold],1-fWarm.length));
-  if(fCold.length<1) fCold.push(...pick([...f.hot,...f.warm],1-fCold.length));
+  const frontPool=[...new Set([...f.hot,...f.warm,...f.cold])];
+  if(fHot.length<3) fHot.push(...pick(frontPool.filter(x=>!fHot.includes(x)),3-fHot.length));
+  if(fWarm.length<1) fWarm.push(...pick(frontPool.filter(x=>!fWarm.includes(x)),1-fWarm.length));
+  if(fCold.length<1) fCold.push(...pick(frontPool.filter(x=>!fCold.includes(x)),1-fCold.length));
 
-  // 后区保底：1热+1温，不足时跨类补齐
+  /* 后区保底：1热+1温，不足时从全池补位（剔除已选） */
   let bHot=pick(b.hot,1), bWarm=pick(b.warm,1);
-  if(bHot.length<1) bHot.push(...pick(b.warm,1-bHot.length));
-  if(bWarm.length<1) bWarm.push(...pick(b.hot,1-bWarm.length));
+  const backPool=[...new Set([...b.hot,...b.warm,...b.cold])];
+  if(bHot.length<1) bHot.push(...pick(backPool.filter(x=>!bHot.includes(x)),1-bHot.length));
+  if(bWarm.length<1) bWarm.push(...pick(backPool.filter(x=>!bWarm.includes(x)),1-bWarm.length));
 
   // 最终组装并去重
   const front=[...new Set([...fHot,...fWarm,...fCold])].sort();
