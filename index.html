@@ -2,183 +2,140 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
-<title>内容选择器</title>
+<title>动态选号器</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
-:root{--hot:#ff4d4f;--warm:#faad14;--cold:#1890ff;--card:#fff;--bg:#f5f7fa;--text:#262626;--border:#d9d9d9}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;background:var(--bg);color:var(--text)}
-header{background:linear-gradient(135deg,#667eea 0,#764ba2 100%);padding:30px;text-align:center;color:#fff}
-header h1{margin:0 0 10px;font-size:28px}
-header p{margin:0;opacity:.9}
-main{max-width:1200px;margin:20px auto;padding:0 15px;display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
-.card{background:var(--card);border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,.1);padding:20px}
-.card h3{margin-top:0}
-.ball{display:inline-block;width:36px;height:36px;line-height:36px;text-align:center;border-radius:50%;color:#fff;font-weight:700;margin:4px;transition:transform .3s}
-.ball:hover{transform:rotate(360deg) scale(1.1)}
-.hot{background:var(--hot)}.warm{background:var(--warm)}.cold{background:var(--cold)}
-.btn{background:linear-gradient(135deg,#667eea 0,#764ba2 100%);color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:16px;cursor:pointer;transition:.3s}
-.btn:hover{box-shadow:0 4px 12px rgba(102,126,234,.4)}
-table{width:100%;font-size:13px;border-collapse:collapse;margin-top:10px}
-th,td{border:1px solid var(--border);padding:6px;text-align:center}
-th{background:#fafafa}
-.copy{margin-left:10px;font-size:12px;color:#1890ff;cursor:pointer}
-.copy:hover{text-decoration:underline}
-.center{text-align:center}
-#recent{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-#recent span{background:var(--card);border:1px solid var(--border);padding:4px 8px;border-radius:4px;font-size:12px}
+body{font-family:Arial,Helvetica,sans-serif;margin:30px;background:#f7f7f7}
+h2{color:#c30}
+button{padding:8px 18px;font-size:16px;cursor:pointer}
+.ball{display:inline-block;width:32px;height:32px;line-height:32px;text-align:center;border-radius:50%;margin:4px;font-weight:bold;color:#fff}
+.hot{background:#e74c3c}.warm{background:#f39c12}.cold{background:#3498db}
+table{border-collapse:collapse;margin-top:15px;font-size:13px}
+th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}
+th{background:#eee}
+#stats{display:flex;gap:20px;margin:10px 0}
+#stats div{flex:1}
 </style>
 </head>
 <body>
-<header>
-  <h1>我的人生靠走运</h1>
-  <p>策略：前区 3 热 + 1 温 + 1 冷　|　后区 1 热 + 1 温</p>
-</header>
 
-<main>
-  <!-- 生成号码 -->
-  <section class="card center">
-    <button class="btn" onclick="generate()">生成一注</button>
-    <div id="result" style="margin-top:15px"></div>
-  </section>
+<h2>动态选号器</h2>
+<p>策略：前区 3 热 + 1 温 + 1 冷　|　后区 1 热 + 1 温</p>
+<button onclick="generate()">生成一注</button>
+<div id="result" style="margin-top:15px;font-size:18px"></div>
 
-  <!-- 最近 10 期快照 -->
-  <section class="card">
-    <h3>最近 10 期</h3>
-    <div id="recent"></div>
-  </section>
+<h3>前区冷热分布（最近100期）</h3>
+<div id="stats"></div>
+<table id="frontTable"></table>
 
-  <!-- 前区冷热 -->
-  <section class="card">
-    <h3>前区冷热分布 <span class="copy" onclick="copyText('front')">复制号码</span></h3>
-    <div id="frontStat"></div>
-    <table id="frontTable"></table>
-  </section>
-
-  <!-- 后区冷热 -->
-  <section class="card">
-    <h3>后区冷热分布 <span class="copy" onclick="copyText('back')">复制号码</span></h3>
-    <div id="backStat"></div>
-    <table id="backTable"></table>
-  </section>
-</main>
+<h3>后区冷热分布</h3>
+<table id="backTable"></table>
 
 <script>
 /* ===== 与之前相同的核心逻辑 ===== */
-let draws=[],frontStat={},backStat={};
+let draws=[];      // 原始100期
+let frontStat={};  // {number:{freq,miss}}
+let backStat ={};
+
+/* 1. 拉取最新100期 */
 async function loadDraws(){
-  try{
-    draws = await fetch('https://dlt-crawler.vercel.app/api/dlt-100').then(r => r.json());
-    if(!draws || !draws.length) throw new Error('API 返回空');
-  }catch(e){
-    console.error(e);
-    draws = [];   // 保底空数组，避免后面循环报错
-  }
+  draws=await fetch('https://dlt-crawler.vercel.app/api/dlt-100').then(r=>r.json());
   buildStat();
-  showRecent();   // 必须等 buildStat 完成
-  render();       // 必须等 buildStat 完成
-  generate();     // 最后生成号码
+  showRecent();
+  render();
+  generate();
 }
+loadDraws();
+
+/* 2. 统计频次 & 当前遗漏 */
 function buildStat(){
   // 初始化
   for(let i=1;i<=35;i++) frontStat[String(i).padStart(2,'0')]={freq:0,miss:0};
-  for(let i=1;i<=12;i++) backStat[String(i).padStart(2,'0')]={freq:0,miss:0};
-
+  for(let i=1; i<=12;i++) backStat [String(i).padStart(2,'0')]={freq:0,miss:0};
+  // 兼容字符串数组
   draws.forEach((d,idx)=>{
-    // 剥离 HTML 标签并补零
-    d.front.forEach(raw=>{
-      const n = raw.replace(/<[^>]+>/g,'').trim().padStart(2,'0');
-      if(frontStat[n]){ frontStat[n].freq++; frontStat[n].miss=idx; }
+    // 前区
+    (Array.isArray(d.front)?d.front:[d.front]).forEach(n=>{
+      const key=String(n).padStart(2,'0');
+      if(frontStat[key]){ frontStat[key].freq++; frontStat[key].miss=idx; }
     });
-    d.back.forEach(raw=>{
-      const n = raw.replace(/<[^>]+>/g,'').trim().padStart(2,'0');
-      if(backStat[n]){ backStat[n].freq++; backStat[n].miss=idx; }
+    // 后区
+    (Array.isArray(d.back)?d.back:[d.back]).forEach(n=>{
+      const key=String(n).padStart(2,'0');
+      if(backStat[key]){ backStat[key].freq++; backStat[key].miss=idx; }
     });
   });
-
   // 计算遗漏
   draws.forEach((d,idx)=>{
-    d.front.forEach(raw=>{
-      const n = raw.replace(/<[^>]+>/g,'').trim().padStart(2,'0');
-      if(frontStat[n]) frontStat[n].miss=idx-frontStat[n].miss;
+    (Array.isArray(d.front)?d.front:[d.front]).forEach(n=>{
+      const key=String(n).padStart(2,'0');
+      if(frontStat[key]) frontStat[key].miss=idx-frontStat[key].miss;
     });
-    d.back.forEach(raw=>{
-      const n = raw.replace(/<[^>]+>/g,'').trim().padStart(2,'0');
-      if(backStat[n]) backStat[n].miss=idx-backStat[n].miss;
+    (Array.isArray(d.back)?d.back:[d.back]).forEach(n=>{
+      const key=String(n).padStart(2,'0');
+      if(backStat[key]) backStat[key].miss=idx-backStat[key].miss;
     });
   });
 }
+
+/* 3. 冷热分类 */
 function classify(stat){
   const h=[],w=[],c=[];
   for(let n in stat)(stat[n].miss<=3?h:stat[n].miss<=10?w:c).push(n);
   return {hot:h,warm:w,cold:c};
 }
+
+/* 4. 按策略随机选号 */
 function pick(arr,k){
-  const a=[...arr].map(Number);
+  const a=[...arr].map(n=>String(n).padStart(2,'0'));
   for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
-  return a.slice(0,k).sort((x,y)=>x-y);
+  return a.slice(0,k).sort();
 }
 function generate(){
-  const f=classify(frontStat),b=classify(backStat);
-  const fHot=pick(f.hot,3),fWarm=pick(f.warm,1),fCold=pick(f.cold,1);
-  // 后区保底：先按策略 1 热+1 温，若某一类不足就用另一类补齐
-  let bH=pick(b.hot,1),bW=pick(b.warm,1);
-  if(bH.length===0) bH=pick(b.warm,1);   // 没热号就用温号补
-  if(bW.length===0) bW=pick(b.hot,1);    // 没温号就用热号补
-  // 如果还是不足 2 个（极端全空），再随机补一个
-  const back=[...bH,...bW];
-  if(back.length<2){
-    const pool=[...b.hot,...b.warm];          // 热+温 全 pool
-    back.push(...pick(pool,2-back.length));   // 补齐到 2
-  }
-  const front=[...fHot,...fWarm,...fCold].sort((x,y)=>x-y);
-  showResult(front,back.sort((x,y)=>x-y),fHot,fWarm,fCold,bH,bW);
+  const f=classify(frontStat);
+  const b=classify(backStat);
+  const fHot=pick(f.hot,3), fWarm=pick(f.warm,1), fCold=pick(f.cold,1);
+  const bHot=pick(b.hot,1), bWarm=pick(b.warm,1);
+  const front=[...fHot,...fWarm,...fCold].sort();
+  const back =[...bHot,...bWarm].sort();
+  showResult(front,back,fHot,fWarm,fCold,bHot,bWarm);
 }
-function showResult(front, back, fH, fW, fC, bH, bW) {
-  const span = n => `<span class="ball ${fH.includes(n) || bH.includes(n) ? 'hot' : fW.includes(n) || bW.includes(n) ? 'warm' : 'cold'}">${String(n).padStart(2, '0')}</span>`;
-  const frontStr = front.map(n => String(n).padStart(2, '0')).join(' ');
-  const backStr = back.map(n => String(n).padStart(2, '0')).join(' ');
-  const resultHTML = `
-    前区：${front.map(span).join('')}<br>
-    后区：${back.map(span).join('')}<br>
-    <button class="btn" onclick="copyNums('${frontStr}', '${backStr}')" style="margin-top:8px;">一键复制</button>`;
-  document.getElementById('result').innerHTML = resultHTML;
+
+/* 5. 页面渲染 */
+function showResult(front,back,fH,fW,fC,bH,bW){
+  const span=n=>`<span class="ball ${fH.includes(n)||bH.includes(n)?'hot':fW.includes(n)||bW.includes(n)?'warm':'cold'}">${n}</span>`;
+  const fHtml=front.map(span).join('');
+  const bHtml=back.map(span).join('');
+  document.getElementById('result').innerHTML=`前区：${fHtml} &nbsp;&nbsp; 后区：${bHtml}`;
 }
-  // 复制功能
-function copyNums(front, back) {
-  const text = `前区：${front}  后区：${back}`;
-  navigator.clipboard.writeText(text).then(() => {
-    alert('已复制到剪贴板：\n' + text);
-  }).catch(err => {
-    alert('复制失败，请手动选中复制');
+function render(){
+  const f=classify(frontStat);
+  const b=classify(backStat);
+  const fRows=[],bRows=[];
+  ['hot','warm','cold'].forEach(type=>{
+    (type==='hot'?f.hot:type==='warm'?f.warm:f.cold).forEach(n=>{
+      const s=frontStat[n];
+      fRows.push(`<tr><td>${n}</td><td>${s.freq}</td><td>${s.miss}</td><td class="${type}">${type==='hot'?'热':type==='warm'?'温':'冷'}</td></tr>`);
+    });
+    (type==='hot'?b.hot:type==='warm'?b.warm:b.cold).forEach(n=>{
+      const s=backStat[n];
+      bRows.push(`<tr><td>${n}</td><td>${s.freq}</td><td>${s.miss}</td><td class="${type}">${type==='hot'?'热':type==='warm'?'温':'冷'}</td></tr>`);
+    });
   });
+  document.getElementById('frontTable').innerHTML='<thead><tr><th>号</th><th>出现次数</th><th>当前遗漏</th><th>冷热</th></tr></thead><tbody>'+fRows.join('')+'</tbody>';
+  document.getElementById('backTable').innerHTML  ='<thead><tr><th>号</th><th>出现次数</th><th>当前遗漏</th><th>冷热</th></tr></thead><tbody>'+bRows.join('')+'</tbody>';
+  document.getElementById('stats').innerHTML=`  
+    <div>前区 热号：${f.hot.join(' ')}</div>  
+    <div>前区 温号：${f.warm.join(' ')}</div>  
+    <div>前区 冷号：${f.cold.join(' ')}</div>  
+  `;
 }
 function showRecent(){
   const recent=draws.slice(0,10);
   document.getElementById('recent').innerHTML=
-    recent.length ? recent.map(d=>`<span>${d.issue} 前[${d.front.join(' ')}] 后[${d.back.join(' ')}]</span>`).join('')
+    recent.length ? recent.map(d=>`<span>${d.issue} 前[${Array.isArray(d.front)?d.front.join(' '):d.front}] 后[${Array.isArray(d.back)?d.back.join(' '):d.back}]</span>`).join('')
                 : '<span>暂无数据</span>';
 }
-function render(){
-  const f=classify(frontStat),b=classify(backStat);
-  document.getElementById('frontStat').innerHTML=`热：${f.hot.join(' ')}<br>温：${f.warm.join(' ')}<br>冷：${f.cold.join(' ')}`;
-  document.getElementById('backStat').innerHTML=`热：${b.hot.join(' ')}<br>温：${b.warm.join(' ')}<br>冷：${b.cold.join(' ')}`;
-  const fRows=[],bRows=[];
-  ['hot','warm','cold'].forEach(t=>{
-    (t==='hot'?f.hot:t==='warm'?f.warm:f.cold).forEach(n=>{
-      const s=frontStat[n];fRows.push(`<tr><td>${n.padStart(2,'0')}</td><td>${s.freq}</td><td>${s.miss}</td><td class="${t}">${t==='hot'?'热':t==='warm'?'温':'冷'}</td></tr>`);
-    });
-    (t==='hot'?b.hot:t==='warm'?b.warm:b.cold).forEach(n=>{
-      const s=backStat[n];bRows.push(`<tr><td>${n.padStart(2,'0')}</td><td>${s.freq}</td><td>${s.miss}</td><td class="${t}">${t==='hot'?'热':t==='warm'?'温':'冷'}</td></tr>`);
-    });
-  });
-  document.getElementById('frontTable').innerHTML='<thead><tr><th>号</th><th>次数</th><th>遗漏</th><th>冷热</th></tr></thead><tbody>'+fRows.join('')+'</tbody>';
-  document.getElementById('backTable').innerHTML='<thead><tr><th>号</th><th>次数</th><th>遗漏</th><th>冷热</th></tr></thead><tbody>'+bRows.join('')+'</tbody>';
-}
-function copyText(area){
-  const txt=area==='front'?Object.keys(frontStat).map(n=>n.padStart(2,'0')).join(' '):Object.keys(backStat).map(n=>n.padStart(2,'0')).join(' ');
-  navigator.clipboard.writeText(txt);alert(area==='front'?'前区号码已复制':'后区号码已复制');
-}
-loadDraws();
 </script>
 </body>
 </html>
