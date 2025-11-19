@@ -124,12 +124,12 @@ function generate(){
   let fHot=pick(f.hot,3), fWarm=pick(f.warm,1), fCold=pick(f.cold,1);
   if(fHot.length<3) fHot.push(...pick([...f.warm,...f.cold],3-fHot.length));
   if(fWarm.length<1) fWarm.push(...pick([...f.hot,...f.cold],1-fWarm.length));
-  if(fCold.length<1) fCold.push(...pick([...f.hot,...f.warm],1-fCold.length)));
+  if(fCold.length<1) fCold.push(...pick([...f.hot,...f.warm],1-fCold.length));
 
   // 后区保底：1热+1温，不足时跨类补齐
   let bHot=pick(b.hot,1), bWarm=pick(b.warm,1);
   if(bHot.length<1) bHot.push(...pick(b.warm,1-bHot.length));
-  if(bWarm.length<1) bWarm.push(...pick(b.hot,1-bWarm.length)));
+  if(bWarm.length<1) bWarm.push(...pick(b.hot,1-bWarm.length));
 
   // 最终组装并去重
   const front=[...new Set([...fHot,...fWarm,...fCold])].sort();
