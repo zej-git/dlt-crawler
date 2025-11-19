@@ -19,11 +19,11 @@ async function fetch500() {
     for (const tr of trMatches) {
       // 3. 提取所有 <td>数字</td>
       const tds = tr.match(/<td[^>]*>(\d+)<\/td>/g);
-      if (!tds || tds.length < 8) continue; // 8 个号码
+      if (!tds || tds.length < 9) continue; // 8 个号码
       const nums = tds.map(td => td.replace(/<\/?td[^>]*>/g, '').trim());
-      const issue = nums[0];                      // 第 1 个是期号
-      const front = nums.slice(1, 6).map(v => v.padStart(2, '0')); // 第 2-6 是前区
-      const back  = nums.slice(6, 8).map(v => v.padStart(2, '0')); // 第 7-8 是后区
+      const issue = nums[1];                      // 第 1 个是期号
+      const front = nums.slice(2, 7).map(v => v.padStart(2, '0')); // 第 2-6 是前区
+      const back  = nums.slice(7, 9).map(v => v.padStart(2, '0')); // 第 7-8 是后区
       all.push({ issue, front, back });
     }
     // 4. 只留最近 500 期
@@ -40,4 +40,5 @@ async function fetch500() {
   fs.writeFileSync('dlt100.json', JSON.stringify(list, null, 2));
   console.log('✅ dlt100.json 已更新（共', list.length, '期）');
 })();
+
 
