@@ -26,8 +26,8 @@ async function fetch500() {
       const back  = nums.slice(6, 8).map(v => v.padStart(2, '0')); // 第 7-8 是后区
       all.push({ issue, front, back });
     }
-    // 4. 只留最近 100 期
-    return all.slice(-100);
+    // 4. 只留最近 500 期
+    return all.slice(-500);
   } catch (e) {
     console.warn('HTML 也失败', e.message);
     // 兜底：回退本地种子
@@ -40,3 +40,4 @@ async function fetch500() {
   fs.writeFileSync('dlt100.json', JSON.stringify(list, null, 2));
   console.log('✅ dlt100.json 已更新（共', list.length, '期）');
 })();
+
